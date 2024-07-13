@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 
 const SignupForm = () => {
     const [id, setId] = useState('');
-    const [idError, setIdError] = useState(false);
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -20,7 +19,7 @@ const SignupForm = () => {
             return;
         }
         try {
-            const response = await fetch('http://117.110.121.3003/auth/sign-up', {
+            const response = await fetch('http://117.110.121.213:3003/auth/sign-up', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -29,7 +28,7 @@ const SignupForm = () => {
             });
 
             if (response.ok) {
-                router.push('/');
+                router.push('/signin');
             } else {
                 const data = await response.json();
                 setError(data.error || '회원가입 실패');
@@ -83,11 +82,11 @@ return (
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
         >
-            SignUp
+            Sign Up
         </Button>
         <Typography variant="body2" align="center">
             이미 계정이 있으신가요?{' '}
-            <Link href="/">로그인</Link>
+            <Link href="/signin">로그인</Link>
         </Typography>
     </Box>
 );

@@ -7,7 +7,7 @@ export default function Home() {
     const router = useRouter();
 
     const loginPageMove = () => {
-        router.push("/login")
+        router.push("/signin")
     };
 
     return (
