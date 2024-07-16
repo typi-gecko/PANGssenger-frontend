@@ -1,48 +1,30 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { verify } from "jsonwebtoken";
+import React, { useState } from 'react';
 import {
     TextField,
     Button,
     Box,
     Typography,
     Link,
+    Alert,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/authContext';
-import { io, Socket } from 'socket.io-client';
 
 const SigninForm: React.FC = () => {
     const [id, setId] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const { login, logout } = useAuth();
     const router = useRouter();
-    const { login } = useAuth();
-    let socket: Socket;
-
-    useEffect(() => {
-        socket = io('http://117.110.121.213:3003')
-
-        socket.on("connect", () => {
-            console.log("Connected to server");
-            socket.emit("helloServer", "Hello, Server!");
-        });
-
-        socket.on("helloClient", (msg) => {
-            console.log(msg);
-            socket.disconnect();
-        });
-
-        return () => {
-            socket.disconnect();
-        };
-    }, []);
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         try {
-            const response = await fetch('http://117.110.121.213:3003/auth/sign-in', {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/auth/sign-in`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -51,24 +33,33 @@ const SigninForm: React.FC = () => {
             });
 
             if (response.ok) {
-                const { token, ...userData } = await response.json();
-                localStorage.setItem('token', token);
-                const socket = io('http://117.110.121.213:3003', {
-                    auth: {
-                        token: `Bearer ${token}`
-                    },
-                });
-                socket.on('connect', () => {
-                    userData.socketId = socket.id;
-                    login(userData);
-                    localStorage.setItem('user', JSON.stringify(userData));
-                    router.push('/rooms');
-                });
+                const tokenText = await response.text();
+                try {
+                    const { accessToken, refreshToken } = JSON.parse(tokenText) as { accessToken: string, refreshToken: string };
+                    try {
+                        const a = accessToken;
+                        const payload = verify(a, process.env.NEXT_PUBLIC_JWT_ACCESS_SECRET_KEY);
+                        console.log(payload)
+                        if (typeof payload === 'object' && 'id' in payload) {
+                            sessionStorage.setItem('user-id', payload.id);
+                        }
+    
+                    } catch (error) {
+                        console.log(error);
+                        logout();
+                    }
+
+                    sessionStorage.setItem('access-token', accessToken);
+                    sessionStorage.setItem('refresh-token', refreshToken);
+                    login();
+                } catch (error) {
+                    throw new Error("token json을 파싱하는 과정 중 오류가 발생하였습니다.");
+                } finally {
+                    router.push("/rooms");
+                }
             } else {
-                if (response.status === 401) {
-                    setError('아이디 또는 비밀번호가 올바르지 않습니다.');
-                } else if (response.status === 404) {
-                    setError('존재하지 않는 아이디입니다.');
+                if (response.status === 403 || 401) {
+                    setError('아이디 또는 비밀번호가 존재하지 않거나, 올바르지 않습니다.');
                 } else {
                     const data = await response.json();
                     setError(data.error || '로그인 실패');
@@ -81,6 +72,14 @@ const SigninForm: React.FC = () => {
 
     return (
         <Box component="form" onSubmit={handleSubmit} >
+            {error && (
+                <Alert 
+                    severity="error" 
+                    variant="filled"
+                >
+                    {error}
+                </Alert>
+            )}
             <TextField
                 margin="normal"
                 required

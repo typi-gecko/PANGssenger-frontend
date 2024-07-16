@@ -19,7 +19,7 @@ const SignupForm = () => {
             return;
         }
         try {
-            const response = await fetch('http://117.110.121.213:3003/auth/sign-up', {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/auth/sign-up`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

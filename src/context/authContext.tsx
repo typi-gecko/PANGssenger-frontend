@@ -1,50 +1,69 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useState, createContext, useContext } from 'react';
+import { io, Socket } from 'socket.io-client';
+import { useRouter } from 'next/navigation';
 
-interface User {
-    id: string;
-    password: string;
-}
+
 
 interface AuthContextType {
-    user: User | null;
-    setUser: (user: User | null) => void;
-    login: (userData: User) => void;
+    login: () => void;
     logout: () => void;
+    socket: Socket | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
-    user: null,
-    setUser: () => { },
     login: () => { },
     logout: () => { },
+    socket: null
 });
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-    children,
-}) => {
-    const [user, setUser] = useState<User | null>(null);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const router = useRouter();
 
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
+    const connectSocket = async (token: string) => {
+        try {
+            const newSocket = io(`${process.env.NEXT_PUBLIC_URL}`, {
+                auth: {
+                    token: `${token}`,
+                },
+            });
+
+            newSocket.on('connect', () => {
+                console.log('Socket.IO connected');
+                setSocket(newSocket);
+            });
+
+        } catch (error) {
+            console.error('Socket.IO connection error:', error);
         }
-    }, []);
+    };
 
-    const login = (userData: User) => {
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
+    const login = async () => {
+        const accessToken = sessionStorage.getItem('access-token');
+        if (!accessToken) throw new Error("cannot find access token.");
+        // if (!accessToken) {console.log("cannot find access token."); router.push('/')};
+        try {
+            await connectSocket(accessToken);
+        } catch (error) {
+            console.error('Login error:', error);
+            logout();
+        } finally {
+            console.log("로그인 잘됨")
+        }
     };
 
     const logout = () => {
-        setUser(null);
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+        socket?.disconnect();
+        setSocket(null);
+        router.push('/');
     };
 
     return (
-        <AuthContext.Provider value={{ user, setUser, login, logout }}>
+        <AuthContext.Provider value={{ login, logout, socket }}>
             {children}
         </AuthContext.Provider>
     );
